@@ -1,0 +1,450 @@
+{
+  "dataset": "FD004",
+  "sensitivity": [
+    {
+      "ratio": 3.0,
+      "capacity": 2,
+      "policies": {
+        "Time-based": {
+          "param": 170,
+          "cost_per_1k": 6.809,
+          "failures_per_1k": 0.672,
+          "availability": 0.9593
+        },
+        "Predicted RUL": {
+          "param": 32,
+          "cost_per_1k": 4.847,
+          "failures_per_1k": 0.138,
+          "availability": 0.9744
+        },
+        "Risk-based": {
+          "param": 24,
+          "cost_per_1k": 4.58,
+          "failures_per_1k": 0.032,
+          "availability": 0.9768
+        }
+      }
+    },
+    {
+      "ratio": 12.0,
+      "capacity": 2,
+      "policies": {
+        "Time-based": {
+          "param": 110,
+          "cost_per_1k": 6.678,
+          "failures_per_1k": 0.001,
+          "availability": 0.9667
+        },
+        "Predicted RUL": {
+          "param": 44,
+          "cost_per_1k": 5.09,
+          "failures_per_1k": 0.023,
+          "availability": 0.9754
+        },
+        "Risk-based": {
+          "param": 32,
+          "cost_per_1k": 4.721,
+          "failures_per_1k": 0.003,
+          "availability": 0.9765
+        }
+      }
+    }
+  ],
+  "engines": {
+    "train": 137,
+    "calibrate": 37,
+    "tune": 38,
+    "test": 37
+  },
+  "band": {
+    "target_coverage": 0.8,
+    "coverage_test": 0.887,
+    "coverage_last_50_cycles": 0.785,
+    "conformal_margin": 0.65
+  },
+  "weibull": {
+    "scale": 279.55,
+    "shape": 3.4,
+    "mtbf": 251.53,
+    "optimal_age": 135
+  },
+  "simulation": {
+    "fleet_size": 30,
+    "horizon": 3000,
+    "check_interval": 10,
+    "scheduled_downtime": 5,
+    "unscheduled_downtime": 25,
+    "scheduled_cost": 1.0,
+    "unscheduled_cost": 6.0,
+    "capacities": [
+      1,
+      2,
+      3,
+      4,
+      6,
+      30
+    ],
+    "seeds": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "initial_age_max": 0.6,
+    "sensitivity_ratios": [
+      3.0,
+      12.0
+    ],
+    "sensitivity_capacity": 2
+  },
+  "results": [
+    {
+      "capacity": 1,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9459,
+          "failures": 135.6,
+          "planned": 300.0,
+          "wasted_life": 60.0427,
+          "cost": 1113.6,
+          "cost_per_1k": 12.3733,
+          "failures_per_1k": 1.5067,
+          "cost_per_1k_sd": 0.3314,
+          "failures_per_1k_sd": 0.0552,
+          "availability_sd": 0.0014,
+          "param": 60
+        },
+        "Predicted RUL": {
+          "availability": 0.9588,
+          "failures": 89.6,
+          "planned": 296.2,
+          "wasted_life": 18.5888,
+          "cost": 833.8,
+          "cost_per_1k": 9.2644,
+          "failures_per_1k": 0.9956,
+          "cost_per_1k_sd": 0.3615,
+          "failures_per_1k_sd": 0.0598,
+          "availability_sd": 0.0014,
+          "param": 64
+        },
+        "Risk-based": {
+          "availability": 0.9594,
+          "failures": 86.8,
+          "planned": 299.1,
+          "wasted_life": 18.2104,
+          "cost": 819.9,
+          "cost_per_1k": 9.11,
+          "failures_per_1k": 0.9644,
+          "cost_per_1k_sd": 0.2503,
+          "failures_per_1k_sd": 0.0408,
+          "availability_sd": 0.0011,
+          "param": 72
+        }
+      }
+    },
+    {
+      "capacity": 2,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9667,
+          "failures": 0.1,
+          "planned": 599.8,
+          "wasted_life": 90.584,
+          "cost": 600.4,
+          "cost_per_1k": 6.6711,
+          "failures_per_1k": 0.0011,
+          "cost_per_1k_sd": 0.023,
+          "failures_per_1k_sd": 0.0035,
+          "availability_sd": 0.0001,
+          "param": 110
+        },
+        "Predicted RUL": {
+          "availability": 0.9753,
+          "failures": 3.9,
+          "planned": 425.3,
+          "wasted_life": 33.1464,
+          "cost": 448.7,
+          "cost_per_1k": 4.9856,
+          "failures_per_1k": 0.0433,
+          "cost_per_1k_sd": 0.1303,
+          "failures_per_1k_sd": 0.0254,
+          "availability_sd": 0.0005,
+          "param": 40
+        },
+        "Risk-based": {
+          "availability": 0.9768,
+          "failures": 1.5,
+          "planned": 410.9,
+          "wasted_life": 24.8468,
+          "cost": 419.9,
+          "cost_per_1k": 4.6656,
+          "failures_per_1k": 0.0167,
+          "cost_per_1k_sd": 0.1082,
+          "failures_per_1k_sd": 0.0131,
+          "availability_sd": 0.0005,
+          "param": 28
+        }
+      }
+    },
+    {
+      "capacity": 3,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9667,
+          "failures": 0.2,
+          "planned": 599.1,
+          "wasted_life": 90.2862,
+          "cost": 600.3,
+          "cost_per_1k": 6.67,
+          "failures_per_1k": 0.0022,
+          "cost_per_1k_sd": 0.0246,
+          "failures_per_1k_sd": 0.0047,
+          "availability_sd": 0.0001,
+          "param": 140
+        },
+        "Predicted RUL": {
+          "availability": 0.9743,
+          "failures": 11.6,
+          "planned": 404.6,
+          "wasted_life": 28.097,
+          "cost": 474.2,
+          "cost_per_1k": 5.2689,
+          "failures_per_1k": 0.1289,
+          "cost_per_1k_sd": 0.1864,
+          "failures_per_1k_sd": 0.036,
+          "availability_sd": 0.0008,
+          "param": 32
+        },
+        "Risk-based": {
+          "availability": 0.9776,
+          "failures": 0.3,
+          "planned": 402.0,
+          "wasted_life": 19.5775,
+          "cost": 403.8,
+          "cost_per_1k": 4.4867,
+          "failures_per_1k": 0.0033,
+          "cost_per_1k_sd": 0.0645,
+          "failures_per_1k_sd": 0.0075,
+          "availability_sd": 0.0003,
+          "param": 20
+        }
+      }
+    },
+    {
+      "capacity": 4,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9667,
+          "failures": 0.1,
+          "planned": 599.7,
+          "wasted_life": 90.3273,
+          "cost": 600.3,
+          "cost_per_1k": 6.67,
+          "failures_per_1k": 0.0011,
+          "cost_per_1k_sd": 0.0189,
+          "failures_per_1k_sd": 0.0035,
+          "availability_sd": 0.0001,
+          "param": 140
+        },
+        "Predicted RUL": {
+          "availability": 0.9743,
+          "failures": 11.6,
+          "planned": 405.5,
+          "wasted_life": 28.5337,
+          "cost": 475.1,
+          "cost_per_1k": 5.2789,
+          "failures_per_1k": 0.1289,
+          "cost_per_1k_sd": 0.1903,
+          "failures_per_1k_sd": 0.036,
+          "availability_sd": 0.0008,
+          "param": 32
+        },
+        "Risk-based": {
+          "availability": 0.9779,
+          "failures": 0.0,
+          "planned": 397.2,
+          "wasted_life": 16.9061,
+          "cost": 397.2,
+          "cost_per_1k": 4.4133,
+          "failures_per_1k": 0.0,
+          "cost_per_1k_sd": 0.0599,
+          "failures_per_1k_sd": 0.0,
+          "availability_sd": 0.0003,
+          "param": 16
+        }
+      }
+    },
+    {
+      "capacity": 6,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9666,
+          "failures": 0.1,
+          "planned": 599.9,
+          "wasted_life": 90.3339,
+          "cost": 600.5,
+          "cost_per_1k": 6.6722,
+          "failures_per_1k": 0.0011,
+          "cost_per_1k_sd": 0.0176,
+          "failures_per_1k_sd": 0.0035,
+          "availability_sd": 0.0001,
+          "param": 140
+        },
+        "Predicted RUL": {
+          "availability": 0.9742,
+          "failures": 11.6,
+          "planned": 405.6,
+          "wasted_life": 28.6186,
+          "cost": 475.2,
+          "cost_per_1k": 5.28,
+          "failures_per_1k": 0.1289,
+          "cost_per_1k_sd": 0.1893,
+          "failures_per_1k_sd": 0.036,
+          "availability_sd": 0.0008,
+          "param": 32
+        },
+        "Risk-based": {
+          "availability": 0.9779,
+          "failures": 0.0,
+          "planned": 397.3,
+          "wasted_life": 17.0027,
+          "cost": 397.3,
+          "cost_per_1k": 4.4144,
+          "failures_per_1k": 0.0,
+          "cost_per_1k_sd": 0.0602,
+          "failures_per_1k_sd": 0.0,
+          "availability_sd": 0.0003,
+          "param": 16
+        }
+      }
+    },
+    {
+      "capacity": 30,
+      "policies": {
+        "Run to failure": {
+          "availability": 0.9054,
+          "failures": 342.3,
+          "planned": 0.0,
+          "wasted_life": 0.0,
+          "cost": 2053.8,
+          "cost_per_1k": 22.82,
+          "failures_per_1k": 3.8033,
+          "cost_per_1k_sd": 0.3759,
+          "failures_per_1k_sd": 0.0626,
+          "availability_sd": 0.0013,
+          "param": null
+        },
+        "Time-based": {
+          "availability": 0.9666,
+          "failures": 0.1,
+          "planned": 599.9,
+          "wasted_life": 90.3373,
+          "cost": 600.5,
+          "cost_per_1k": 6.6722,
+          "failures_per_1k": 0.0011,
+          "cost_per_1k_sd": 0.0176,
+          "failures_per_1k_sd": 0.0035,
+          "availability_sd": 0.0001,
+          "param": 140
+        },
+        "Predicted RUL": {
+          "availability": 0.9742,
+          "failures": 11.6,
+          "planned": 405.6,
+          "wasted_life": 28.621,
+          "cost": 475.2,
+          "cost_per_1k": 5.28,
+          "failures_per_1k": 0.1289,
+          "cost_per_1k_sd": 0.1893,
+          "failures_per_1k_sd": 0.036,
+          "availability_sd": 0.0008,
+          "param": 32
+        },
+        "Risk-based": {
+          "availability": 0.9779,
+          "failures": 0.0,
+          "planned": 397.3,
+          "wasted_life": 17.0027,
+          "cost": 397.3,
+          "cost_per_1k": 4.4144,
+          "failures_per_1k": 0.0,
+          "cost_per_1k_sd": 0.0602,
+          "failures_per_1k_sd": 0.0,
+          "availability_sd": 0.0003,
+          "param": 16
+        }
+      }
+    }
+  ]
+}

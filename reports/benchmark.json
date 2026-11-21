@@ -1,0 +1,78 @@
+{
+  "FD001": {
+    "test_engines": 100,
+    "test_engines_capped": 11,
+    "holdout_random_cut_rmse": 9.22,
+    "models": {
+      "Fleet-average life": {
+        "rmse": 36.34,
+        "nasa_score": 23922.3
+      },
+      "Ridge regression": {
+        "rmse": 16.2,
+        "nasa_score": 406.1
+      },
+      "LightGBM": {
+        "rmse": 11.08,
+        "nasa_score": 183.3
+      }
+    }
+  },
+  "FD002": {
+    "test_engines": 259,
+    "test_engines_capped": 57,
+    "holdout_random_cut_rmse": 13.88,
+    "models": {
+      "Fleet-average life": {
+        "rmse": 35.11,
+        "nasa_score": 33836.4
+      },
+      "Ridge regression": {
+        "rmse": 15.11,
+        "nasa_score": 1014.6
+      },
+      "LightGBM": {
+        "rmse": 10.69,
+        "nasa_score": 535.5
+      }
+    }
+  },
+  "FD003": {
+    "test_engines": 100,
+    "test_engines_capped": 15,
+    "holdout_random_cut_rmse": 8.96,
+    "models": {
+      "Fleet-average life": {
+        "rmse": 49.47,
+        "nasa_score": 308523.3
+      },
+      "Ridge regression": {
+        "rmse": 15.68,
+        "nasa_score": 479.6
+      },
+      "LightGBM": {
+        "rmse": 9.71,
+        "nasa_score": 198.8
+      }
+    }
+  },
+  "FD004": {
+    "test_engines": 248,
+    "test_engines_capped": 67,
+    "holdout_random_cut_rmse": 14.13,
+    "models": {
+      "Fleet-average life": {
+        "rmse": 54.4,
+        "nasa_score": 1287929.4
+      },
+      "Ridge regression": {
+        "rmse": 16.35,
+        "nasa_score": 1430.3
+      },
+      "LightGBM": {
+        "rmse": 10.57,
+        "nasa_score": 536.8
+      }
+    }
+  }
+}

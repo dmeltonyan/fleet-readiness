@@ -1,0 +1,47 @@
+# Every assumption the pipeline uses lives here.
+data:
+  raw_dir: data/raw
+  datasets: [FD001, FD002, FD003, FD004]
+  simulation_dataset: FD004      # six flight conditions, two fault modes: the hardest subset
+
+split:                            # by engine ID, never by row
+  seed: 7
+  train: 0.55
+  calibrate: 0.15                 # conformal calibration of the uncertainty band
+  tune: 0.15                      # policy thresholds are tuned here
+  test: 0.15                      # final fleet simulation only
+
+features:
+  rul_cap: 125                    # piecewise-linear target: early life is "healthy", not "very far from failure"
+  windows: [5, 10, 20]
+  slope_window: 20
+  n_regimes: 6
+
+model:
+  quantiles: [0.1, 0.5, 0.9]
+  interval_coverage: 0.8          # target coverage for the conformal band
+  lgbm:
+    n_estimators: 600
+    learning_rate: 0.03
+    num_leaves: 31
+    min_child_samples: 40
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    random_state: 7
+    verbose: -1
+
+simulation:
+  fleet_size: 30
+  horizon: 3000                   # flight cycles
+  check_interval: 10              # cycles between maintenance decisions
+  scheduled_downtime: 5           # cycles an engine is out for a planned removal
+  unscheduled_downtime: 25        # cycles out after an in-service failure (diagnosis, parts, repair)
+  scheduled_cost: 1.0             # relative cost units
+  unscheduled_cost: 6.0           # an in-service failure costs ~6x a planned removal
+  capacities: [1, 2, 3, 4, 6, 30] # maintenance slots per check; 30 = unconstrained
+  seeds: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+  initial_age_max: 0.6            # fleet starts at mixed ages: up to 60% of each engine's life used
+  sensitivity_ratios: [3.0, 12.0] # re-run at other failure/planned cost ratios
+  sensitivity_capacity: 2

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Readiness · maintenance policy explorer</title>
+<meta name="description" content="Predictive maintenance on NASA C-MAPSS: compare time-based and risk-based maintenance policies under limited maintenance capacity.">
+<style>
+:root{--bg:#f7f6f3;--card:#fff;--ink:#1f1f1f;--muted:#5f5b55;--line:#e3dfd7;--accent:#c8371e;--navy:#1f3b5c;--amber:#c88a1e;--gray:#9a948a}
+@media (prefers-color-scheme:dark){:root{--bg:#161514;--card:#1f1d1b;--ink:#f1eee8;--muted:#b3ada3;--line:#34312d;--accent:#ff6a4a;--navy:#7fa6d6;--amber:#e3ad4f;--gray:#8a847a}}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;padding:40px 20px 60px}
+main{max-width:920px;margin:0 auto}
+a{color:inherit}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.02em}
+h2{font-size:20px;margin:36px 0 12px}
+.lede{color:var(--muted);max-width:680px;margin:12px 0 20px}
+.links{display:flex;gap:10px;flex-wrap:wrap}
+.links a{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;text-decoration:none;font-size:14px}
+.links a:hover{border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+.caps{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 18px}
+.caps button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer;min-height:40px}
+.caps button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bars{display:grid;gap:10px}
+.bar{display:grid;grid-template-columns:130px 1fr 64px;gap:12px;align-items:center;font-size:14px}
+.track{height:14px;background:var(--bg);border-radius:7px;overflow:hidden}
+.fill{height:100%;border-radius:7px;transition:width .3s}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:13px;margin-top:10px}
+.scroll{overflow-x:auto;margin-top:18px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:620px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted)}
+tr.best td{font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat b{display:block;font-size:26px;letter-spacing:-.02em}
+.stat span{color:var(--muted);font-size:13px}
+img{max-width:100%;border-radius:12px;border:1px solid var(--line);background:#fff;margin-top:8px}
+ol{padding-left:20px;color:var(--muted)} ol li{margin:6px 0} ol b{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.fill{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Fleet Readiness</h1>
+  <p class="lede">Predict each engine's remaining life, then decide which engines to pull for maintenance when there are only a few slots per check. Results below come from a simulated 30-engine fleet built from NASA's C-MAPSS turbofan data, scored on engines the model never saw.</p>
+  <div class="links">
+    <a href="https://github.com/dmeltonyan/fleet-readiness">Source code</a>
+    <a href="https://github.com/dmeltonyan/fleet-readiness/blob/main/DECISIONS.md">Decision log</a>
+    <a href="https://meltonyan.dev">meltonyan.dev</a>
+  </div>
+
+  <h2>Pick the maintenance capacity</h2>
+  <div class="card">
+    <p class="note" style="margin:0">Slots per check: how many engines can go into maintenance every 10 flight cycles.</p>
+    <div class="caps" id="caps" role="group" aria-label="Maintenance slots per check"></div>
+    <div class="bars" id="bars"></div>
+    <p class="note">Cost per 1,000 fleet-cycles. Planned removal = 1 unit, in-service failure = 6 units. Mean of 10 simulated fleets.</p>
+    <div class="scroll"><table id="table"></table></div>
+  </div>
+  <div class="stats" id="stats"></div>
+
+  <h2>How a policy decides</h2>
+  <ol>
+    <li><b>Run to failure.</b> Never pull an engine; fix it when it breaks.</li>
+    <li><b>Time-based.</b> Replace at a fixed age, the way calendar maintenance works. Oldest first when slots are short.</li>
+    <li><b>Predicted RUL.</b> Pull when the model's estimate of remaining life drops below a threshold.</li>
+    <li><b>Risk-based.</b> Pull when the pessimistic end of a calibrated uncertainty band (about the 10th percentile) drops below a threshold. Most at-risk engines first.</li>
+  </ol>
+  <p class="note">Every threshold is tuned on one set of held-out engines and scored on a different set.</p>
+
+  <h2>One engine, start to finish</h2>
+  <img src="engine_trace.png" alt="Predicted remaining life and pessimistic bound tracking the true remaining life of a held-out engine" loading="lazy">
+</main>
+<script>
+{
+  const COLORS = {"Run to failure":"var(--gray)","Time-based":"var(--navy)","Predicted RUL":"var(--amber)","Risk-based":"var(--accent)"};
+  const PARAM = {"Time-based": p => `age ${p}`, "Predicted RUL": p => `RUL ≤ ${p}`, "Risk-based": p => `10th pct ≤ ${p}`, "Run to failure": () => "—"};
+  const caps = document.getElementById("caps"), bars = document.getElementById("bars"),
+        table = document.getElementById("table"), stats = document.getElementById("stats");
+  const pct = (a, b) => Math.round((1 - a / b) * 100);
+  let data;
+
+  function render(capacity) {
+    const row = data.results.find(r => r.capacity === capacity);
+    [...caps.children].forEach(b => b.setAttribute("aria-pressed", String(Number(b.dataset.cap) === capacity)));
+    const pols = Object.entries(row.policies);
+    const max = Math.max(...pols.map(([, v]) => v.cost_per_1k));
+    const best = pols.reduce((a, b) => (b[1].cost_per_1k < a[1].cost_per_1k ? b : a))[0];
+    bars.innerHTML = pols.map(([name, v]) => `
+      <div class="bar"><span>${name}</span>
+        <div class="track"><div class="fill" style="width:${(v.cost_per_1k / max) * 100}%;background:${COLORS[name]}"></div></div>
+        <span class="num">${v.cost_per_1k.toFixed(2)}</span></div>`).join("");
+    table.innerHTML = `<thead><tr><th>Policy</th><th>Setting</th><th>Failures / 1k</th><th>Planned removals</th><th>Life thrown away</th><th>Availability</th></tr></thead><tbody>` +
+      pols.map(([name, v]) => `<tr class="${name === best ? "best" : ""}"><td>${name}</td><td>${PARAM[name](v.param)}</td>
+        <td>${v.failures_per_1k.toFixed(2)}</td><td>${Math.round(v.planned)}</td>
+        <td>${v.wasted_life.toFixed(1)} cycles</td><td>${(v.availability * 100).toFixed(1)}%</td></tr>`).join("") + "</tbody>";
+    const r = row.policies["Risk-based"], t = row.policies["Time-based"], f = row.policies["Run to failure"];
+    stats.innerHTML = `
+      <div class="stat"><b>${pct(r.cost_per_1k, t.cost_per_1k)}%</b><span>lower cost than time-based</span></div>
+      <div class="stat"><b>${pct(r.wasted_life, t.wasted_life)}%</b><span>less engine life thrown away</span></div>
+      <div class="stat"><b>${(r.availability * 100).toFixed(1)}%</b><span>availability vs ${(t.availability * 100).toFixed(1)}% time-based</span></div>
+      <div class="stat"><b>${r.failures_per_1k.toFixed(2)}</b><span>failures per 1k cycles vs ${f.failures_per_1k.toFixed(2)} run-to-failure</span></div>`;
+  }
+
+  fetch("fleet_study.json").then(r => r.json()).then(d => {
+    data = d;
+    const fleet = d.simulation.fleet_size;
+    caps.innerHTML = d.results.map(r => `<button type="button" data-cap="${r.capacity}">${r.capacity >= fleet ? "No limit" : r.capacity}</button>`).join("");
+    caps.addEventListener("click", e => { const b = e.target.closest("button"); if (b) render(Number(b.dataset.cap)); });
+    render(2);
+  }).catch(() => { bars.textContent = "Could not load results."; });
+}
+</script>
+</body>
+</html>
