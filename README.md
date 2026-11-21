@@ -1,101 +1,91 @@
 # Fleet Readiness
 
-**Data:** [NASA C-MAPSS turbofan engine degradation dataset](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data), run-to-failure sensor histories for 709 simulated jet engines (plus 707 test engines cut off before failure) across four operating scenarios.
+Predictive maintenance on NASA's [C-MAPSS](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data) jet engine dataset. The model predicts how many flight cycles each engine has left, and a maintenance policy uses that prediction to decide which engines to pull in for service when only a couple of maintenance slots are available.
 
-**Built with:** Python · pandas · LightGBM · scikit-learn · lifelines · pytest
+Live results page: https://meltonyan.dev/fleet-readiness/
 
-A predictive-maintenance system that turns sensor data into maintenance decisions. It predicts each engine's remaining useful life (RUL) with a calibrated uncertainty band, then decides which engines to pull for maintenance when there are only a few maintenance slots per check. A simulated fleet scores the result against time-based replacement, the schedule most maintenance programmes run today.
+## The question
 
-**Result:** on a simulated 30-engine fleet over 3,000 flight cycles, with 2 maintenance slots per check, the risk-based policy cost **30% less** than time-based replacement (4.67 vs 6.67 cost units per 1,000 fleet-cycles), needed **32% fewer** planned removals, threw away **73% less** remaining engine life, and raised availability from **96.7% to 97.7%**. Against running engines to failure, in-service failures fell from 3.80 to 0.02 per 1,000 fleet-cycles.
+Most maintenance programs replace parts on a schedule: every N hours or cycles, regardless of condition. That's safe, but it pulls a lot of healthy engines early. Predicting remaining life sounds like the fix, but a prediction by itself doesn't tell a maintainer what to do this week, especially when the hangar can only take two engines at a time.
 
-## Why this matters
+So I compared four ways of making that call on a simulated fleet:
 
-Most fleets maintain on a calendar: replace a part after a fixed number of hours or cycles, whatever its condition. That is safe on average but wasteful, because it pulls healthy parts early, and it still misses the unit that degrades faster than average. Condition-based maintenance replaces the calendar with the part's actual health.
+1. Run to failure: never pull an engine, fix it when it breaks.
+2. Time-based: replace at a fixed age (the scheduled approach).
+3. Predicted RUL: pull when the model's estimate of remaining life drops below a threshold.
+4. Risk-based: pull when the pessimistic end of the model's uncertainty range (roughly the 10th percentile) drops below a threshold, and when slots are short, take the most at-risk engines first.
 
-A good RUL model alone does not get you there. Maintainers have limited hangar slots, so the real question is "which engines go in this week?" This project answers that question and measures what the answer is worth.
+## Result
+
+30 engines, 3,000 flight cycles, 2 maintenance slots every 10 cycles, averaged over 10 simulated fleets. Costs are relative: a planned removal is 1 unit, an engine failing in service is 6.
+
+| Policy | Cost per 1k cycles | Failures per 1k | Planned removals | Life thrown away | Availability |
+| --- | --- | --- | --- | --- | --- |
+| Run to failure | 22.82 | 3.80 | 0 | 0 | 90.5% |
+| Time-based (replace at 110 cycles) | 6.67 | 0.00 | 600 | 90.6 cycles | 96.7% |
+| Predicted RUL (pull at ≤ 40) | 4.99 | 0.04 | 425 | 33.1 cycles | 97.5% |
+| Risk-based (pull at 10th pct ≤ 28) | 4.67 | 0.02 | 411 | 24.8 cycles | 97.7% |
+
+The risk-based policy came out about 30% cheaper than the time-based schedule. Most of that comes from not throwing away good engine life: the scheduled approach pulls engines with 90 cycles left on average, the risk-based one with about 25. It was the cheapest policy at every capacity I tried (1 to unlimited slots) and when I changed the failure cost to 3x or 12x a planned removal.
+
+![Cost and failures as maintenance capacity changes](reports/figures/policy_vs_capacity.png)
 
 ## How it works
 
-1. **Regime normalisation.** Engines fly in six operating conditions (altitude, Mach, throttle) that shift sensor readings far more than wear does. Clustering the operating settings and z-scoring each sensor within its regime leaves the degradation signal.
-2. **Leak-free features.** For every cycle: trailing means over 5, 10 and 20 cycles, an exponentially weighted mean, a 20-cycle least-squares slope, and drift from the engine's own first 20 cycles (which removes manufacturing variation). Every feature uses only past cycles of the same engine, and a test proves it.
-3. **RUL model.** LightGBM regression on RUL capped at 125 cycles (early in life an engine is "healthy", not "very far from failure"). Quantile models give 10th and 90th percentiles, widened by split-conformal calibration on separate engines so the band covers what it claims.
-4. **Maintenance policies.** At every check (every 10 cycles), each policy decides which engines to pull, and in what order when there are more requests than slots:
-   - *Run to failure*: never pull.
-   - *Time-based*: pull at a fixed age, oldest first.
-   - *Predicted RUL*: pull when the point estimate falls below a threshold, lowest first.
-   - *Risk-based*: pull when the pessimistic end of the band (~10th percentile) falls below a threshold, most at-risk first.
-5. **Fleet simulation.** 30 engine positions, mixed starting ages, 3,000 cycles. A planned removal takes 5 cycles and costs 1 unit. An in-service failure takes 25 cycles and costs 6 units. Each policy's threshold is tuned on one set of held-out engines and scored on another, across 10 random fleets.
+**Features.** The engines fly in six different operating conditions, and the condition moves the sensor readings much more than wear does. I cluster the three operating settings into six regimes and normalize each sensor within its regime. Then for every cycle I compute rolling means, a recent slope, and how far each sensor has drifted from that engine's own first 20 cycles. The drift features ended up carrying most of the signal (removing them takes the error from 10.9 to 15.5 cycles). Everything only looks backwards in time, and there's a test that checks that.
 
-## Results
+**Model.** LightGBM regression on remaining life, capped at 125 cycles, since early in an engine's life there's nothing in the sensors that says how far away failure is. Two extra quantile models give a 10th and 90th percentile, and I calibrate that range on a separate set of engines (split conformal) so it actually covers what it claims to.
 
-### Remaining-life prediction (NASA's official test sets)
+**Simulation.** Each fleet position holds an engine that starts at a random age. Every 10 cycles the policy picks which engines to pull. A planned removal takes 5 cycles of downtime; a failure takes 25. Failed or removed engines get replaced from a pool of engines the model never trained on. Each policy's threshold is tuned on one group of engines and then scored on a different group, so the tuning can't fit the test.
 
-| Subset | Conditions / faults | Fleet-average life | Ridge | **LightGBM** | LightGBM, held-out random cut |
+## Model accuracy
+
+RMSE in cycles on NASA's official test sets (true RUL capped at 125, which is the usual convention):
+
+| Subset | Conditions / fault modes | Fleet-average life | Ridge | LightGBM | LightGBM, random cut-off |
 | --- | --- | --- | --- | --- | --- |
-| FD001 | 1 / 1 | 36.3 | 16.2 | **11.1** | 9.2 |
-| FD002 | 6 / 1 | 35.1 | 15.1 | **10.7** | 13.9 |
-| FD003 | 1 / 2 | 49.5 | 15.7 | **9.7** | 9.0 |
-| FD004 | 6 / 2 | 54.4 | 16.4 | **10.6** | 14.1 |
+| FD001 | 1 / 1 | 36.3 | 16.2 | 11.1 | 9.2 |
+| FD002 | 6 / 1 | 35.1 | 15.1 | 10.7 | 13.9 |
+| FD003 | 1 / 2 | 49.5 | 15.7 | 9.7 | 9.0 |
+| FD004 | 6 / 2 | 54.4 | 16.4 | 10.6 | 14.1 |
 
-RMSE in cycles, with true RUL capped at 125 as is standard for this benchmark. NASA asymmetric scores (late predictions penalised harder) are in `reports/benchmark.json`; LightGBM's FD004 score is 537 against 1,430 for ridge. The last column is a second opinion: 20% of training engines held out and each cut at a random point between 30% and 100% of its life. That is harder than the official set, where many engines are cut early and their capped truth is simply 125 (67 of 248 in FD004), so I'd quote 14 cycles as the honest FD004 figure.
+The official FD004 number looked too good to me, so I added the last column: hold out 20% of the training engines, cut each one off at a random point in its life, and score there. The official test set has a lot of engines cut off early (67 of 248 in FD004 have more than 125 cycles left), and those are easy once the target is capped. I'd quote about 14 cycles for FD004.
 
-### Maintenance decisions (FD004, held-out engines)
+![Predicted remaining life for a typical held-out engine](reports/figures/engine_trace.png)
 
-![Maintenance cost and failures as capacity changes](reports/figures/policy_vs_capacity.png)
+## Things worth knowing
 
-| 2 slots per check | Cost / 1k fleet-cycles | Failures / 1k | Planned removals | Life thrown away | Availability |
-| --- | --- | --- | --- | --- | --- |
-| Run to failure | 22.82 | 3.80 | 0 | 0 | 90.5% |
-| Time-based (age 110) | 6.67 | 0.00 | 600 | 90.6 cycles | 96.7% |
-| Predicted RUL (≤ 40) | 4.99 | 0.04 | 425 | 33.1 cycles | 97.5% |
-| **Risk-based (10th pct ≤ 28)** | **4.67** | **0.02** | **411** | **24.8 cycles** | **97.7%** |
+- The scheduled baseline is a fair fight. Fitting a Weibull distribution to the training engines' lifetimes and solving the standard age-replacement problem gives an optimal replacement age of 135 cycles; tuning it in the simulation gave 140.
+- The uncertainty range is weakest where it matters most. It covers 89% of held-out cycles overall (target 80%) but only 79% in the last 50 cycles before failure.
+- C-MAPSS is simulated data. Real maintenance data has missing sensors, messy logs and parts shortages, none of which are modeled here.
+- The costs and downtimes are my assumptions, all in `config.yaml`.
 
-Means over 10 simulated fleets. Seed-to-seed standard deviation of cost is 0.11 for risk-based and 0.02 for time-based, so the gap is far outside run-to-run noise.
+More detail on each decision is in [DECISIONS.md](DECISIONS.md).
 
-- **Risk-based is the cheapest policy at every capacity tested** (1, 2, 3, 4, 6 and unlimited slots) and at every cost ratio tested: with failures costing 3×, 6× or 12× a planned removal it beats time-based by 33%, 30% and 29%.
-- **When capacity is tight, ranking matters.** With one slot per check every policy is saturated, and failures rise for all of them. The risk-based ranking still has the fewest (0.96 per 1k vs 1.51 for time-based), because it sends the engines most likely to fail through first.
-- **The time-based baseline is a fair one.** Fitting a Weibull to training-engine lifetimes (shape 3.4, MTBF 252 cycles) and solving the classic age-replacement problem gives an optimal age of 135 cycles. Tuning by simulation found 140. Both methods agree, so the baseline is the best a calendar schedule can do here, not a straw man.
-- **The uncertainty band is honest about where it is weakest.** It covers 89% of held-out cycles against an 80% target, but 79% within the last 50 cycles of life, where decisions are made. See [DECISIONS.md](DECISIONS.md).
-
-![Predicted RUL for a typical held-out engine](reports/figures/engine_trace.png)
-
-## Assumptions and limitations
-
-- **Simulated engines.** C-MAPSS is a high-fidelity simulation, not fleet data. Real maintenance records are messier: missing sensors, inconsistent logs, parts lead times.
-- **Cost and downtime figures are assumptions**, set in `config.yaml`. The ranking of policies holds across the cost ratios tested; the size of the gap depends on them.
-- **One component.** Each position holds one engine and a replacement is always available. Real fleets juggle many components and spare-part stock.
-- **Small held-out pool.** The final simulation draws from 37 held-out engines (with replacement). Results are averaged over 10 random fleets to reduce noise.
-
-## Run it
+## Running it
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m src.fetch_data      # downloads C-MAPSS from NASA (falls back to a GitHub mirror)
-.venv/bin/python -m src.run             # benchmark + fleet study, ~3 minutes
-.venv/bin/python -m pytest              # leakage, split and simulator tests
+.venv/bin/python -m src.fetch_data   # download C-MAPSS
+.venv/bin/python -m src.run          # benchmark + fleet simulation, about 3 minutes
+.venv/bin/python -m pytest           # tests
 ```
 
-Outputs land in `reports/`: `benchmark.json`, `fleet_study.json` and the figures above.
-
-## Project layout
+Results are written to `reports/`.
 
 ```
-src/data.py        loading and engine-level splits
-src/features.py    regime normalisation and leak-free features
-src/models.py      LightGBM point + conformal quantile band, baselines, NASA score
+src/data.py        loading data, splitting engines into groups
+src/features.py    regime normalization and rolling features
+src/models.py      LightGBM model, uncertainty range, baselines, NASA score
 src/policies.py    the four maintenance policies
-src/simulate.py    capacity-constrained fleet simulation
-src/run.py         end-to-end pipeline and figures
-tests/             no look-ahead, no cross-engine leakage, disjoint splits, simulator accounting
-config.yaml        every assumption in one place
-DECISIONS.md       what was decided and why
+src/simulate.py    fleet simulation
+src/run.py         runs everything and makes the charts
+tests/             leakage, split and simulator tests
 ```
 
-## What I'd do next
+## Next
 
-- **Parts and lead times.** Add spare-part inventory so a removal can wait on parts, which is where much real downtime comes from.
-- **Optimise the whole schedule.** Replace the per-check ranking with a rolling-horizon integer program that plans removals several checks ahead around hangar capacity.
-- **Better near-failure calibration.** Calibrate the band separately for the last 50 cycles, where it under-covers.
-- **Real flight conditions.** Repeat on N-CMAPSS, NASA's newer dataset built from real flight profiles.
-
-Built by [David Meltonyan](https://meltonyan.dev).
+- Add spare parts and lead times. A lot of real downtime is waiting on parts.
+- Plan removals a few checks ahead instead of one check at a time (an integer program over a rolling window).
+- Calibrate the uncertainty range separately for engines close to failure.
+- Try N-CMAPSS, NASA's newer version built from real flight profiles.

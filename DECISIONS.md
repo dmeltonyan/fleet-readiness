@@ -1,43 +1,43 @@
-# Decision log
+# Decisions
 
-What I decided, what I considered instead, and why.
+Notes on the choices I made and why.
 
-## Data and splits
+## Splitting by engine
 
-**Split by engine, never by row.** Rows from the same engine are near-duplicates of each other. A row-level split would put cycle 150 of an engine in training and cycle 151 in test and report a score no new engine would ever get. FD004's 249 training engines are shuffled once (seed 7) into train 137 / calibrate 37 / tune 38 / test 37.
+Rows from the same engine are almost identical cycle to cycle, so splitting by row would leak: cycle 150 in training, cycle 151 in test. I split FD004's 249 training engines into four groups instead: 137 to train the model, 37 to calibrate the uncertainty range, 38 to tune the policy thresholds, and 37 that are only used for the final simulation results.
 
-**Four disjoint groups, each with one job.** The model learns on *train*. The uncertainty band is calibrated on *calibrate*. Policy thresholds are tuned on *tune*. Only *test* engines appear in the reported fleet results. If thresholds were tuned on the engines they are scored on, the risk-based policy would look better than it is.
+The extra groups matter for the policies. If I tuned the thresholds on the same engines I report results on, the model-based policies would look better than they really are.
 
-**FD004 for the fleet study.** It is the hardest subset: six operating conditions and two fault modes. If the approach works there, it works on the easier ones.
+I used FD004 for the simulation because it's the hardest subset (six operating conditions, two fault modes).
 
 ## Features
 
-**Normalise within operating regime.** In FD004 the operating condition explains most of the variance in raw sensor readings; degradation is a small signal on top. KMeans on the three settings finds the six regimes, fitted on training engines only.
+The operating condition (altitude, speed, throttle) changes the raw sensor values far more than wear does. KMeans on the three operating settings finds the six conditions, and I normalize each sensor within its condition. This is fit on the training engines only.
 
-**Drift from the engine's own baseline.** Engines start with different manufacturing variation. Comparing each engine to its first 20 cycles removes that offset. It is by far the most useful feature family: 83% of the model's split gain, and removing it raises held-out RMSE from 10.9 to 15.5 cycles. Engine age (cycle count) is second; removing it costs 3.1 cycles of RMSE. Slopes and the exponentially weighted mean add almost nothing on top.
+Every engine starts with slightly different manufacturing variation, so I also measure how far each sensor has drifted from that engine's own first 20 cycles. This turned out to be the most important feature group by a lot: 83% of the model's split gain, and dropping it raises held-out error from 10.9 to 15.5 cycles. Engine age is second (dropping it costs about 3 cycles). The slope and exponential average features barely help.
 
-**Leakage is tested, not assumed.** `tests/test_features.py` appends future cycles to an engine and checks that no earlier feature changes, and alters one engine to check no other engine's features move. A model trained on shuffled labels scores RMSE 40+ on held-out engines, as it should.
+To make sure nothing looks ahead, `tests/test_features.py` adds future cycles to an engine and checks that earlier features don't change, and changes one engine's data to check that no other engine's features move. As another sanity check, a model trained on shuffled labels gets 40+ cycles of error, which is what you'd expect from a model that learned nothing.
 
-## Model
+## The model
 
-**Cap RUL at 125.** Early in life the sensors carry no information about when an engine will fail, so asking the model to distinguish "300 cycles left" from "200 cycles left" just adds noise. Capping is the standard treatment for this dataset and matches how a maintainer thinks: healthy, or counting down.
+I cap remaining life at 125 cycles. Early on, the sensors don't contain any information about whether failure is 200 or 300 cycles away, so asking the model to tell the difference just adds noise. This is the standard way people handle this dataset.
 
-**LightGBM over a deep sequence model.** Gradient-boosted trees on good trailing-window features reach 10.6 RMSE on FD004's official test set (14.1 on harder held-out random cuts), train in seconds, and are easy to inspect. A sequence model might gain a little accuracy; the decision results show that ranking and uncertainty matter more than the last cycle of RMSE.
+I went with LightGBM instead of an LSTM or transformer because it trains in seconds, is easy to inspect, and was accurate enough. The simulation results suggest the ranking and the uncertainty estimate matter more for the decisions than squeezing out another cycle of error.
 
-**Report a second, harder score.** The official FD004 test set has 67 of 248 engines with true RUL above 125, which the cap turns into an easy target. Holding out training engines and cutting them at random points gives 14.1 RMSE, and that is the number I would quote.
+The FD004 official test score (10.6) looked suspiciously good, so I checked it a second way: hold out training engines, cut each at a random point, and score there. That gives 14.1. The gap is because a quarter of the official test engines are cut off early, where the capped answer is just 125. I'd quote 14.
 
-**Conformal calibration of the band.** Raw quantile regression is often over-confident. Split-conformal calibration on separate engines widens the band by exactly enough to hit the target coverage on those engines. On test engines it covers 89% overall (target 80%) but 79% within 50 cycles of failure. Rows from the same engine are correlated, so the exchangeability assumption behind conformal guarantees only holds approximately; the near-failure shortfall is the visible cost.
+For the uncertainty range, raw quantile regression tends to be overconfident. Split conformal calibration widens it just enough to hit 80% coverage on the calibration engines. On new engines it covers 89% overall but 79% in the last 50 cycles. Conformal guarantees assume the data points are exchangeable, and rows from the same engine aren't really independent, so that near-failure gap is probably where that shows up.
 
-## Policies and simulation
+## Policies and the simulation
 
-**Score decisions, not just predictions.** RMSE treats a 20-cycle error at 120 cycles of remaining life the same as one at 20 cycles. In maintenance the second one is the in-flight failure. The simulation measures what each policy actually costs.
+RMSE treats every error the same, but in maintenance a 20-cycle mistake when an engine has 120 cycles left is nothing, and the same mistake at 20 cycles left is a failure in service. That's why the comparison is done in a simulation that counts costs and failures.
 
-**The risk-based policy uses the pessimistic bound.** "Pull when there is a real chance this engine fails before the next couple of checks" is closer to how maintainers reason than "pull when the average guess crosses a line". Ranking by the same bound sends the engines most likely to fail through first when slots are short.
+The risk-based policy uses the 10th percentile of predicted remaining life instead of the point estimate. The idea is "pull it if there's a real chance it fails before the next couple of checks", which seems closer to how a maintainer would actually think.
 
-**A strong time-based baseline.** The comparison is only meaningful if the calendar schedule is as good as a calendar schedule can be. Its replacement age is tuned on the same engines as the other policies, and it agrees with the classic Weibull age-replacement optimum (135 vs 140 cycles).
+I wanted the time-based baseline to be as strong as a fixed schedule can be, otherwise beating it doesn't mean much. Its replacement age is tuned the same way as the other policies, and the result (140 cycles) is close to what the textbook Weibull age-replacement calculation gives (135).
 
-**At one slot per check the time-based age hits its search floor (60).** With one slot every policy saturates it (300 removals = one per check), so the replacement age barely changes the outcome. Lowering the floor would not change the conclusion.
+With only one slot per check, the tuned time-based age ends up at the bottom of its search range (60). Every policy uses every slot at that capacity, so the setting barely changes anything.
 
-**Common random numbers.** Every policy sees exactly the same engines in the same fleet positions with the same starting ages. Differences in the results come from decisions, not luck of the draw.
+Every policy sees exactly the same engines, in the same positions, starting at the same ages. That way differences between policies come from their decisions and not from luck.
 
-**Costs are relative.** A planned removal is 1 unit and an in-service failure 6 units, with 5 vs 25 cycles of downtime. These are assumptions, so the study is re-run at failure costs of 3 and 12 units. The risk-based policy is cheapest in every case.
+The costs (planned removal = 1, failure = 6) and downtimes (5 vs 25 cycles) are assumptions, so I also re-ran with failures costing 3 and 12. The risk-based policy was cheapest every time.
